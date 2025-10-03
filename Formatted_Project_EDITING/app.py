@@ -1,8 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash
-from transaction_model import EnhancedTransactionManager, Transaction
-from ai_parser import EnhancedAITransactionParser, AITransaction
+from src.models.transaction_model import EnhancedTransactionManager, Transaction
+from src.parsers.ai_parser import EnhancedAITransactionParser, AITransaction
+from config.settings import config
 try:
-    from plaid_parser import PlaidTransactionParser, PlaidTransaction
+    from src.parsers.plaid_parser import PlaidTransactionParser, PlaidTransaction
     PLAID_AVAILABLE = True
 except ImportError:
     PLAID_AVAILABLE = False
@@ -11,18 +12,11 @@ from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import os
 import tempfile
-from dotenv import load_dotenv
 import json
 
-# Load environment variables first
-load_dotenv(override=True)
-
-# Debug: Check if API key is loaded correctly
-api_key = os.getenv('OPENAI_API_KEY')
-print(f"API Key loaded in Flask app: {api_key[:20] + '...' if api_key and len(api_key) > 20 else api_key}")
-
+# Initialize Flask app with configuration
 app = Flask(__name__)
-app.secret_key = 'luni-web-enhanced-secret-key-2024'  # For flash messages
+app.config.from_object(config['development'])
 
 # Initialize managers
 transaction_manager = EnhancedTransactionManager()
@@ -37,9 +31,9 @@ plaid_transactions_list = []
 plaid_parser = None
 
 # Configure upload settings
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'csv'}
-AI_ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'heic', 'pdf'}
+UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
+ALLOWED_EXTENSIONS = app.config['ALLOWED_EXTENSIONS']
+AI_ALLOWED_EXTENSIONS = app.config['AI_ALLOWED_EXTENSIONS']
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -831,4 +825,4 @@ def api_sub_accounts(parent_account):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=3001, host='127.0.0.1')
+    app.run(debug=True, port=3000, host='127.0.0.1')
