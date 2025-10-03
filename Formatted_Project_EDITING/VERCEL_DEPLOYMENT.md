@@ -31,9 +31,9 @@ PLAID_ENVIRONMENT=sandbox (optional)
 
 **Framework Preset**: Other
 **Root Directory**: `Formatted_Project_EDITING`
-**Build Command**: `pip install -r requirements-vercel.txt`
+**Build Command**: `pip install -r api/requirements.txt`
 **Output Directory**: Leave empty
-**Install Command**: `pip install -r requirements-vercel.txt`
+**Install Command**: `pip install -r api/requirements.txt`
 
 ### Step 4: Deploy
 
@@ -130,8 +130,14 @@ Formatted_Project_EDITING/
 
 ### Common Issues
 
+#### 404 NOT_FOUND Error
+- **Check vercel.json** points to correct entry point (`api/index.py`)
+- **Verify api/index.py** exists and imports correctly
+- **Check routes configuration** in vercel.json
+- **Ensure Flask app** is properly initialized in api/index.py
+
 #### Build Failures
-- **Check requirements-vercel.txt** for correct dependencies
+- **Check api/requirements.txt** for correct dependencies
 - **Verify Python version** (Vercel uses Python 3.9+)
 - **Check build logs** in Vercel dashboard
 
