@@ -9,7 +9,21 @@ import json
 from datetime import datetime
 
 # Initialize Flask app with configuration
-app = Flask(__name__, template_folder='../templates')
+# Try multiple template folder paths for Vercel
+template_folders = ['../templates', 'templates', './templates', '/tmp/templates']
+template_folder = None
+
+for folder in template_folders:
+    if os.path.exists(folder):
+        template_folder = folder
+        break
+
+if template_folder:
+    app = Flask(__name__, template_folder=template_folder)
+    print(f"✅ Using template folder: {template_folder}")
+else:
+    app = Flask(__name__)
+    print("⚠️ No template folder found, using default")
 
 # Basic configuration for Vercel
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -21,11 +35,13 @@ transactions = []
 @app.route('/')
 def index():
     """Root route - redirect to dashboard"""
+    print("🔍 Root route accessed")
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
     """Main dashboard page"""
+    print("🔍 Dashboard route accessed")
     try:
         # Simple statistics for demo
         stats = {
@@ -37,11 +53,16 @@ def dashboard():
         # Get recent transactions
         recent_transactions = transactions[-5:] if transactions else []
         
+        print(f"🔍 Attempting to render dashboard.html")
+        print(f"🔍 Template folder: {app.template_folder}")
+        print(f"🔍 Current directory: {os.getcwd()}")
+        
         return render_template('dashboard.html', 
                              stats=stats,
                              recent_transactions=recent_transactions,
                              roommate_balances=[])
     except Exception as e:
+        print(f"❌ Template error: {str(e)}")
         # If template fails, return simple HTML
         return f"""
         <html>
@@ -49,7 +70,9 @@ def dashboard():
         <body>
             <h1>Welcome to Luni Web</h1>
             <p>Dashboard is loading...</p>
-            <p>Error: {str(e)}</p>
+            <p>Template Error: {str(e)}</p>
+            <p>Template folder: {app.template_folder}</p>
+            <p>Current directory: {os.getcwd()}</p>
             <nav>
                 <a href="/upload">Upload</a> | 
                 <a href="/all_transactions">All Transactions</a> | 
