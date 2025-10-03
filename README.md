@@ -213,4 +213,4 @@ The application runs in debug mode by default, providing:
 
 ## 📄 License
 
-This project is for educational and personal use.
+This project is for educational and personal use.# Force Vercel redeploy - Fri Oct  3 16:05:07 PDT 2025
