@@ -2,30 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "index.html",
+      "src": "public/**/*",
       "use": "@vercel/static"
-    },
-    {
-      "src": "api/transactions.py",
-      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "api/transactions.py"
-    },
-    {
       "src": "/(.*)",
-      "dest": "index.html"
+      "dest": "public/index.html"
     }
-  ],
-  "env": {
-    "FLASK_ENV": "production"
-  },
-  "functions": {
-    "api/transactions.py": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
