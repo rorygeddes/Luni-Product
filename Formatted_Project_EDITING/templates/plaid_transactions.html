@@ -9,9 +9,41 @@
         Automatically retrieve bank transactions and review them before adding to your system
     </p>
     
+    <!-- Saved Connections Section -->
+    {% if saved_connections %}
+    <div class="saved-connections-section" style="margin-bottom: 30px;">
+        <h3 style="color: #8b4513; margin-bottom: 20px; font-weight: 600;">🏦 Connected Banks</h3>
+        <div style="background: rgba(255, 255, 255, 0.7); border-radius: 15px; padding: 20px; border: 2px solid rgba(46, 204, 113, 0.3);">
+            {% for connection in saved_connections %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(46, 204, 113, 0.1); border-radius: 10px; margin-bottom: 10px;">
+                <div>
+                    <h4 style="color: #27ae60; margin: 0; font-size: 18px;">{{ connection.institution_name }}</h4>
+                    <p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">
+                        Connected: {{ connection.created_at[:10] }} | 
+                        Last used: {{ connection.last_used[:10] }}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="fetchTransactionsFromConnection('{{ connection.item_id }}')" 
+                            class="btn btn-success" 
+                            style="background: #27ae60; border: none; padding: 8px 16px; border-radius: 5px; color: white; font-weight: 600;">
+                        📥 Fetch Transactions
+                    </button>
+                    <button onclick="disconnectBank('{{ connection.item_id }}')" 
+                            class="btn btn-danger" 
+                            style="background: #e74c3c; border: none; padding: 8px 16px; border-radius: 5px; color: white; font-weight: 600;">
+                        🗑️ Disconnect
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Connect Bank Account Section -->
     <div class="upload-section">
-        <h3 style="color: #8b4513; margin-bottom: 20px; font-weight: 600;">🔗 Connect Bank Account</h3>
+        <h3 style="color: #8b4513; margin-bottom: 20px; font-weight: 600;">🔗 Connect New Bank Account</h3>
         
         <div style="background: rgba(255, 255, 255, 0.7); border-radius: 15px; padding: 20px; margin-bottom: 25px; border: 2px solid rgba(212, 175, 55, 0.2);">
             <p style="color: #8b4513; margin-bottom: 20px; font-size: 16px;">
@@ -632,6 +664,106 @@
 
     function hideLoading() {
         document.getElementById('loading-overlay').style.display = 'none';
+    }
+
+    // New functions for persistent storage
+    function fetchTransactionsFromConnection(itemId) {
+        const daysBack = document.getElementById('days_back').value;
+        
+        showLoading();
+        
+        fetch('/plaid_get_transactions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: 'luni_user',
+                days_back: parseInt(daysBack)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                if (data.transactions_count > 0) {
+                    alert(`Successfully fetched ${data.transactions_count} transactions!`);
+                    location.reload(); // Refresh to show new transactions
+                } else {
+                    alert('No new transactions found.');
+                }
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error fetching transactions: ' + error.message);
+        });
+    }
+
+    function disconnectBank(itemId) {
+        if (confirm('Are you sure you want to disconnect this bank account? This will remove the connection permanently.')) {
+            fetch('/plaid_disconnect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: 'luni_user',
+                    item_id: itemId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Bank account disconnected successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error disconnecting bank: ' + error.message);
+            });
+        }
+    }
+
+    // Update the existing onSuccess function to save the connection
+    function onSuccess(public_token, metadata) {
+        console.log('Plaid Link success:', public_token, metadata);
+        
+        showLoading();
+        
+        // Exchange public token for access token and save to storage
+        fetch('/plaid_exchange_token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                public_token: public_token,
+                user_id: 'luni_user',
+                institution: metadata.institution
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                alert('Bank account connected successfully! You can now fetch transactions.');
+                location.reload(); // Refresh to show the new connection
+            } else {
+                alert('Error connecting bank account: ' + data.error);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error connecting bank account: ' + error.message);
+        });
     }
 </script>
 

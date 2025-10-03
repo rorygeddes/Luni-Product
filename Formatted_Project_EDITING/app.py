@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash
 from src.models.transaction_model import EnhancedTransactionManager, Transaction
 from src.parsers.ai_parser import EnhancedAITransactionParser, AITransaction
+from src.utils.storage_manager import StorageManager
 from config.settings import config
 try:
     from src.parsers.plaid_parser import PlaidTransactionParser, PlaidTransaction
@@ -21,6 +22,7 @@ app.config.from_object(config['development'])
 # Initialize managers
 transaction_manager = EnhancedTransactionManager()
 ai_parser = EnhancedAITransactionParser()
+storage_manager = StorageManager()
 
 # Global storage for AI transactions and extracted texts
 ai_transactions = []
@@ -331,6 +333,176 @@ def plaid_link_token():
         print(f"Error creating link token: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/plaid_exchange_token', methods=['POST'])
+def plaid_exchange_token():
+    """Exchange public token for access token and save to storage"""
+    try:
+        if not PLAID_AVAILABLE:
+            return jsonify({'error': 'Plaid not available'}), 500
+        
+        data = request.get_json()
+        public_token = data.get('public_token')
+        user_id = data.get('user_id', 'luni_user')
+        
+        if not public_token:
+            return jsonify({'error': 'Public token required'}), 400
+        
+        # Initialize parser if needed
+        global plaid_parser
+        if plaid_parser is None:
+            plaid_parser = PlaidTransactionParser()
+        
+        # Exchange public token for access token
+        exchange_response = plaid_parser.client.item_public_token_exchange({
+            'public_token': public_token
+        })
+        
+        access_token = exchange_response['access_token']
+        item_id = exchange_response['item_id']
+        
+        # Get institution information
+        institution_info = None
+        try:
+            item_response = plaid_parser.client.item_get({'access_token': access_token})
+            institution_id = item_response['item']['institution_id']
+            institution_response = plaid_parser.client.institutions_get_by_id({
+                'institution_id': institution_id,
+                'country_codes': ['CA', 'US']
+            })
+            institution_info = institution_response['institution']
+        except Exception as e:
+            print(f"Error getting institution info: {e}")
+        
+        # Save connection to persistent storage
+        success = storage_manager.save_plaid_connection(
+            user_id=user_id,
+            access_token=access_token,
+            item_id=item_id,
+            institution_name=institution_info.get('name') if institution_info else 'Unknown Bank',
+            account_info={
+                'institution_id': institution_info.get('institution_id') if institution_info else None,
+                'products': institution_info.get('products') if institution_info else []
+            }
+        )
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Bank account connected successfully!',
+                'item_id': item_id,
+                'institution_name': institution_info.get('name') if institution_info else 'Unknown Bank'
+            })
+        else:
+            return jsonify({'error': 'Failed to save connection'}), 500
+            
+    except Exception as e:
+        print(f"Error exchanging token: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/plaid_get_connections', methods=['GET'])
+def plaid_get_connections():
+    """Get all saved Plaid connections for the user"""
+    try:
+        user_id = request.args.get('user_id', 'luni_user')
+        connections = storage_manager.load_plaid_connections(user_id)
+        
+        # Return only safe information (no access tokens)
+        safe_connections = []
+        for conn in connections:
+            safe_connections.append({
+                'item_id': conn['item_id'],
+                'institution_name': conn['institution_name'],
+                'created_at': conn['created_at'],
+                'last_used': conn['last_used'],
+                'is_active': conn['is_active']
+            })
+        
+        return jsonify({
+            'success': True,
+            'connections': safe_connections
+        })
+        
+    except Exception as e:
+        print(f"Error getting connections: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/plaid_get_transactions', methods=['POST'])
+def plaid_get_transactions():
+    """Get transactions from saved Plaid connections"""
+    try:
+        if not PLAID_AVAILABLE:
+            return jsonify({'error': 'Plaid not available'}), 500
+        
+        data = request.get_json()
+        user_id = data.get('user_id', 'luni_user')
+        days_back = data.get('days_back', 30)
+        
+        # Get active connection
+        connection = storage_manager.get_active_connection(user_id)
+        if not connection:
+            return jsonify({'error': 'No active bank connection found'}), 400
+        
+        # Initialize parser if needed
+        global plaid_parser
+        if plaid_parser is None:
+            plaid_parser = PlaidTransactionParser()
+        
+        # Fetch transactions using saved access token
+        transactions = plaid_parser.get_recent_transactions(
+            connection['access_token'], 
+            days_back
+        )
+        
+        # Update usage timestamp
+        storage_manager.update_connection_usage(user_id, connection['item_id'])
+        
+        if transactions:
+            # Add to global plaid_transactions_list
+            global plaid_transactions_list
+            plaid_transactions_list.extend(transactions)
+            
+            return jsonify({
+                'success': True,
+                'transactions_count': len(transactions),
+                'message': f'Successfully fetched {len(transactions)} transactions from {connection["institution_name"]}'
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'transactions_count': 0,
+                'message': 'No new transactions found'
+            })
+            
+    except Exception as e:
+        print(f"Error getting transactions: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/plaid_disconnect', methods=['POST'])
+def plaid_disconnect():
+    """Disconnect a Plaid connection"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'luni_user')
+        item_id = data.get('item_id')
+        
+        if not item_id:
+            return jsonify({'error': 'Item ID required'}), 400
+        
+        # Deactivate the connection
+        success = storage_manager.deactivate_connection(user_id, item_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Bank account disconnected successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to disconnect bank account'}), 500
+            
+    except Exception as e:
+        print(f"Error disconnecting bank: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/plaid_transactions', methods=['GET', 'POST'])
 def plaid_transactions():
     """Plaid Transactions page for automatic bank transaction retrieval"""
@@ -341,12 +513,17 @@ def plaid_transactions():
         flash('Plaid integration is not available. Please install plaid-python and set up API credentials.', 'error')
         return render_template('plaid_transactions.html',
                              plaid_transactions=[],
+                             saved_connections=[],
                              roommates=transaction_manager.roommates,
                              payment_methods=transaction_manager.payment_methods,
                              parent_accounts=transaction_manager.parent_accounts,
                              default_person=transaction_manager.default_person,
                              all_sub_accounts=transaction_manager.get_all_sub_accounts(),
                              parsing_stats={})
+    
+    # Get saved connections for the user
+    user_id = 'luni_user'  # You can make this dynamic based on session
+    saved_connections = storage_manager.load_plaid_connections(user_id)
     
     # Initialize Plaid parser if not already done
     if plaid_parser is None:
@@ -494,6 +671,7 @@ def plaid_transactions():
     
     return render_template('plaid_transactions.html',
                          plaid_transactions=plaid_transactions_list,
+                         saved_connections=saved_connections,
                          roommates=transaction_manager.roommates,
                          payment_methods=transaction_manager.payment_methods,
                          parent_accounts=transaction_manager.parent_accounts,
