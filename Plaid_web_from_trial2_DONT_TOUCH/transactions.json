@@ -1,0 +1,353 @@
+{
+  "transactions": [
+    {
+      "date": "2025-09-25",
+      "description": "SEND E-TFR ***Zu4",
+      "amount": -50.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "expense",
+      "parent_account": "Food",
+      "id": "20250925_115816_9532",
+      "created_at": "2025-09-25T11:58:16.432816",
+      "updated_at": "2025-09-26T12:51:54.529148"
+    },
+    {
+      "date": "2025-09-25",
+      "description": "E-TRANSFER ***kH7",
+      "amount": 37.67,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "expense",
+      "parent_account": "Food",
+      "id": "20250925_115816_9767",
+      "created_at": "2025-09-25T11:58:16.433038",
+      "updated_at": "2025-09-26T12:51:54.529151"
+    },
+    {
+      "date": "2025-09-02",
+      "description": "SEND E-TFR ***FAv",
+      "amount": -25.0,
+      "account": "Textbooks",
+      "who_paid": "Rory",
+      "who_will_use": "Rory, Rayna",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Education",
+      "id": "20250925_115816_3489",
+      "created_at": "2025-09-25T11:58:16.430917",
+      "updated_at": "2025-09-26T12:51:54.529154"
+    },
+    {
+      "date": "2025-08-29",
+      "description": "CHQ RETURN FEE",
+      "amount": -2.0,
+      "account": "Investment income",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "expense",
+      "parent_account": "Other/Bonus",
+      "id": "20250925_115816_9344",
+      "created_at": "2025-09-25T11:58:16.433267",
+      "updated_at": "2025-09-26T12:51:54.529155"
+    },
+    {
+      "date": "2025-09-26",
+      "description": "Tectra Inc",
+      "amount": 500.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_4815",
+      "created_at": "2025-09-26T12:59:02.861301",
+      "updated_at": "2025-09-26T12:59:02.861301"
+    },
+    {
+      "date": "2025-09-25",
+      "description": "AUTOMATIC PAYMENT - THANK",
+      "amount": 2078.5,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_6743",
+      "created_at": "2025-09-26T12:59:02.862394",
+      "updated_at": "2025-09-26T12:59:02.862394"
+    },
+    {
+      "date": "2025-09-25",
+      "description": "KFC",
+      "amount": 500.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_8499",
+      "created_at": "2025-09-26T12:59:02.862975",
+      "updated_at": "2025-09-26T12:59:02.862975"
+    },
+    {
+      "date": "2025-09-25",
+      "description": "Madison Bicycle Shop",
+      "amount": 500.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Select",
+      "id": "20250926_125902_756",
+      "created_at": "2025-09-26T12:59:02.863404",
+      "updated_at": "2025-09-26T12:59:02.863404"
+    },
+    {
+      "date": "2025-09-16",
+      "description": "CREDIT CARD 3333 PAYMENT *//",
+      "amount": 25.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Transportation",
+      "id": "20250926_125902_7248",
+      "created_at": "2025-09-26T12:59:02.863719",
+      "updated_at": "2025-09-26T12:59:02.863719"
+    },
+    {
+      "date": "2025-09-16",
+      "description": "Uber 063015 SF**POOL**",
+      "amount": 5.4,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Transportation",
+      "id": "20250926_125902_3551",
+      "created_at": "2025-09-26T12:59:02.864164",
+      "updated_at": "2025-09-26T12:59:02.864164"
+    },
+    {
+      "date": "2025-09-14",
+      "description": "Touchstone Climbing",
+      "amount": 78.5,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_51",
+      "created_at": "2025-09-26T12:59:02.864657",
+      "updated_at": "2025-09-26T12:59:02.864657"
+    },
+    {
+      "date": "2025-09-14",
+      "description": "United Airlines",
+      "amount": 500.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "expense",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_1941",
+      "created_at": "2025-09-26T12:59:02.865187",
+      "updated_at": "2025-09-26T12:59:02.865187"
+    },
+    {
+      "date": "2025-09-13",
+      "description": "McDonald's",
+      "amount": 12.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_5847",
+      "created_at": "2025-09-26T12:59:02.865556",
+      "updated_at": "2025-09-26T12:59:02.865556"
+    },
+    {
+      "date": "2025-09-13",
+      "description": "Starbucks",
+      "amount": 4.33,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_720",
+      "created_at": "2025-09-26T12:59:02.866023",
+      "updated_at": "2025-09-26T12:59:02.866023"
+    },
+    {
+      "date": "2025-09-12",
+      "description": "SparkFun",
+      "amount": 89.4,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_9165",
+      "created_at": "2025-09-26T12:59:02.866427",
+      "updated_at": "2025-09-26T12:59:02.866427"
+    },
+    {
+      "date": "2025-09-11",
+      "description": "INTRST PYMNT",
+      "amount": 4.22,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "expense",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_9529",
+      "created_at": "2025-09-26T12:59:02.867033",
+      "updated_at": "2025-09-26T12:59:02.867033"
+    },
+    {
+      "date": "2025-09-01",
+      "description": "United Airlines",
+      "amount": 500.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_1941",
+      "created_at": "2025-09-26T12:59:02.867454",
+      "updated_at": "2025-09-26T12:59:02.867454"
+    },
+    {
+      "date": "2025-08-30",
+      "description": "Uber 072515 SF**POOL**",
+      "amount": 6.33,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Transportation",
+      "id": "20250926_125902_9124",
+      "created_at": "2025-09-26T12:59:02.867771",
+      "updated_at": "2025-09-26T12:59:02.867771"
+    },
+    {
+      "date": "2025-08-27",
+      "description": "Tectra Inc",
+      "amount": 500.0,
+      "account": "",
+      "who_paid": "Rory",
+      "who_will_use": "Rory",
+      "method_of_payment": "Debit Card",
+      "type": "income",
+      "parent_account": "Other/Bonus",
+      "id": "20250926_125902_4815",
+      "created_at": "2025-09-26T12:59:02.868078",
+      "updated_at": "2025-09-26T12:59:02.868078"
+    }
+  ],
+  "roommates": [
+    "Rory",
+    "Rayna"
+  ],
+  "parent_accounts": {
+    "Housing": [
+      "Rent",
+      "Utilities",
+      "Internet",
+      "Furniture/essentials",
+      "Test House"
+    ],
+    "Food": [
+      "Groceries",
+      "Restaurants",
+      "Dining out",
+      "Coffee",
+      "Snacks"
+    ],
+    "Transportation": [
+      "Public transit pass",
+      "Gas",
+      "Car insurance & maintenance",
+      "Rideshare",
+      "Bike/scooter"
+    ],
+    "Education": [
+      "Tuition & fees",
+      "Textbooks",
+      "Supplies"
+    ],
+    "Personal/Lifestyle": [
+      "Clothing",
+      "Subscription",
+      "Entertainment",
+      "Nights out",
+      "Hobbies",
+      "Sports/gym"
+    ],
+    "Health & Wellness": [
+      "Health insurance / school plan",
+      "Medication / pharmacy",
+      "Fitness needs",
+      "Haircut"
+    ],
+    "Savings & Debt": [
+      "Emergency fund",
+      "Credit card payments"
+    ],
+    "Employment": [
+      "Part-time jobs",
+      "Side Hustle"
+    ],
+    "Family Support": [
+      "Allowance",
+      "Gifts",
+      "Family Help"
+    ],
+    "Loans & Aid": [
+      "Student loans",
+      "Bursaries/Government aid",
+      "Scholarships"
+    ],
+    "Other/Bonus": [
+      "Investment income",
+      "Refunds / rebates",
+      "Selling items"
+    ]
+  },
+  "payment_methods": [
+    "Debit Card",
+    "Credit Card",
+    "Cash",
+    "Investments",
+    "Bank Transfer",
+    "Mobile Payment"
+  ],
+  "default_person": "Rory",
+  "metadata": {
+    "version": "2.0",
+    "created_at": "2025-09-24T18:35:22.992626",
+    "last_updated": "2025-09-26T12:59:02.868082"
+  }
+}

@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}Information - Luni Web{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1>⚙️ Information Management</h1>
+        <div>
+            <button id="edit_mode" type="button" class="btn" onclick="toggleEditMode()" style="display: block;">
+                ✏️ Edit Mode
+            </button>
+            <button id="save_mode" type="button" class="btn btn-success" onclick="toggleEditMode()" style="display: none;">
+                💾 Save Changes
+            </button>
+        </div>
+    </div>
+    
+    <!-- System Statistics -->
+    <div style="background: rgba(212, 175, 55, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 30px;">
+        <h3 style="color: #8b4513; margin-bottom: 15px; font-weight: 600;">📊 System Statistics</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div><strong>Total Transactions:</strong> {{ stats.get('total_transactions', 0) }}</div>
+            <div><strong>Total Roommates:</strong> {{ stats.get('total_roommates', 0) }}</div>
+            <div><strong>Account Categories:</strong> {{ stats.get('total_accounts', 0) }}</div>
+            <div><strong>Last Updated:</strong> {{ stats.get('last_updated', 'Unknown')[:19] }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Default Person Section -->
+<div class="card">
+    <h2>👤 Default Person</h2>
+    <p style="color: #8b4513; margin-bottom: 20px; font-size: 14px;">Set the primary user for the system.</p>
+    
+    <div id="default_person_view" style="display: block;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h4 style="color: #8b4513; margin: 0; font-weight: 600;">Current Default Person:</h4>
+            <button type="button" class="btn" onclick="showEditForm('default_person')" style="padding: 8px 16px; font-size: 14px;">
+                ✏️ Edit
+            </button>
+        </div>
+        {% if default_person %}
+        <div style="background: rgba(212, 175, 55, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #d4af37;">
+            <strong>{{ default_person }}</strong>
+        </div>
+        {% else %}
+        <div style="background: rgba(231, 76, 60, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #e74c3c;">
+            <p style="color: #8b4513; font-style: italic; margin: 0;">No default person set</p>
+            <button type="button" class="btn" onclick="showEditForm('default_person')" style="margin-top: 10px;">
+                ➕ Set Default Person
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div id="default_person_edit" style="display: none;">
+        <form method="POST">
+            <input type="hidden" name="action" value="set_default_person">
+            <div class="form-group">
+                <label for="default_person_name">Default Person Name:</label>
+                <input type="text" id="default_person_name" name="default_person_name" placeholder="Enter default person name" value="{{ default_person }}" required>
+            </div>
+            <button type="submit" class="btn">Set Default Person</button>
+            <button type="button" class="btn btn-secondary" onclick="hideEditForm('default_person')">Cancel</button>
+        </form>
+    </div>
+</div>
+
+<!-- Roommates Section -->
+<div class="card">
+    <h2>👥 Roommates</h2>
+    <p style="color: #8b4513; margin-bottom: 20px; font-size: 14px;">Manage people who share expenses.</p>
+    
+    <div id="roommates_view" style="display: block;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h4 style="color: #8b4513; margin: 0; font-weight: 600;">Current Roommates ({{ roommates|length }}):</h4>
+            <button type="button" class="btn" onclick="showEditForm('roommates')" style="padding: 8px 16px; font-size: 14px;">
+                ➕ Add Roommate
+            </button>
+        </div>
+        {% if roommates %}
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+            {% for roommate in roommates %}
+            <div style="background: rgba(212, 175, 55, 0.1); border-radius: 12px; padding: 10px 15px; border-left: 4px solid #d4af37; display: flex; align-items: center; gap: 10px;">
+                <span>{{ roommate }}</span>
+                <button type="button" class="btn btn-danger" onclick="removeRoommate('{{ roommate }}')" style="padding: 4px 8px; font-size: 12px;">🗑️</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="background: rgba(231, 76, 60, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #e74c3c; text-align: center;">
+            <p style="color: #8b4513; font-style: italic; margin: 0 0 15px 0;">No roommates added yet</p>
+            <button type="button" class="btn" onclick="showEditForm('roommates')">
+                ➕ Add Your First Roommate
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div id="roommates_edit" style="display: none;">
+        <form method="POST">
+            <input type="hidden" name="action" value="add_roommate">
+            <div class="form-group">
+                <label for="roommate_name">Roommate Name:</label>
+                <input type="text" id="roommate_name" name="roommate_name" placeholder="Enter roommate name" required>
+            </div>
+            <button type="submit" class="btn">Add Roommate</button>
+            <button type="button" class="btn btn-secondary" onclick="hideEditForm('roommates')">Cancel</button>
+        </form>
+    </div>
+</div>
+
+<!-- Account Management Section -->
+<div class="card">
+    <h2>💰 Account Management</h2>
+    <p style="color: #8b4513; margin-bottom: 20px; font-size: 14px;">Manage parent accounts and their sub-accounts for transactions.</p>
+    
+    <div id="accounts_view" style="display: block;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h4 style="color: #8b4513; margin: 0; font-weight: 600;">Current Accounts ({{ parent_accounts|length }}):</h4>
+            <button type="button" class="btn" onclick="showEditForm('accounts')" style="padding: 8px 16px; font-size: 14px;">
+                ➕ Add Account
+            </button>
+        </div>
+        {% if parent_accounts %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+            {% for parent_name, sub_accounts in parent_accounts.items() %}
+            <div style="background: rgba(255, 255, 255, 0.7); border-radius: 15px; padding: 20px; border: 2px solid rgba(212, 175, 55, 0.2);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="color: #8b4513; margin: 0; font-weight: 600;">{{ parent_name }}</h4>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn" onclick="addSubAccountToParent('{{ parent_name }}')" style="padding: 6px 12px; font-size: 12px;">
+                            ➕ Add Sub-Account
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="removeParentAccount('{{ parent_name }}')" style="padding: 6px 12px; font-size: 12px;">
+                            🗑️ Remove
+                        </button>
+                    </div>
+                </div>
+                
+                {% if sub_accounts %}
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    {% for sub_account in sub_accounts %}
+                    <div style="background: rgba(212, 175, 55, 0.2); color: #8b4513; padding: 6px 12px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+                        {{ sub_account }}
+                        <button type="button" class="btn btn-danger" onclick="removeSubAccount('{{ parent_name }}', '{{ sub_account }}')" style="padding: 2px 6px; font-size: 10px; border-radius: 10px;">
+                            ×
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="color: #8b4513; font-style: italic; font-size: 12px;">No sub-accounts</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="color: #8b4513; font-style: italic;">No accounts configured</p>
+        {% endif %}
+    </div>
+    
+    <div id="accounts_edit" style="display: none;">
+        <form method="POST">
+            <input type="hidden" name="action" value="add_parent_account">
+            <div class="form-group">
+                <label for="parent_account_name">New Parent Account:</label>
+                <input type="text" id="parent_account_name" name="parent_account_name" placeholder="e.g., Entertainment, Travel" required>
+            </div>
+            <button type="submit" class="btn">Add Parent Account</button>
+        </form>
+        
+        <hr style="margin: 20px 0;">
+        
+        <form method="POST">
+            <input type="hidden" name="action" value="add_sub_account">
+            <div class="form-group">
+                <label for="parent_account_for_sub">Select Parent Account:</label>
+                <select id="parent_account_for_sub" name="parent_account_for_sub" required>
+                    <option value="">Choose parent account</option>
+                    {% for parent_name in parent_accounts.keys() %}
+                    <option value="{{ parent_name }}">{{ parent_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sub_account_name">Sub-Account Name:</label>
+                <input type="text" id="sub_account_name" name="sub_account_name" placeholder="e.g., Netflix, Gym Membership" required>
+            </div>
+            <button type="submit" class="btn">Add Sub-Account</button>
+        </form>
+    </div>
+</div>
+
+<!-- Payment Methods Section -->
+<div class="card">
+    <h2>💳 Payment Methods</h2>
+    <p style="color: #8b4513; margin-bottom: 20px; font-size: 14px;">Manage available payment methods.</p>
+    
+    <div id="payment_methods_view" style="display: block;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h4 style="color: #8b4513; margin: 0; font-weight: 600;">Current Payment Methods ({{ payment_methods|length }}):</h4>
+            <button type="button" class="btn" onclick="showEditForm('payment_methods')" style="padding: 8px 16px; font-size: 14px;">
+                ➕ Add Method
+            </button>
+        </div>
+        {% if payment_methods %}
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+            {% for method in payment_methods %}
+            <div style="background: rgba(212, 175, 55, 0.1); border-radius: 12px; padding: 10px 15px; border-left: 4px solid #d4af37; display: flex; align-items: center; gap: 10px;">
+                <span>{{ method }}</span>
+                <button type="button" class="btn btn-danger" onclick="removePaymentMethod('{{ method }}')" style="padding: 4px 8px; font-size: 12px;">🗑️</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="background: rgba(231, 76, 60, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #e74c3c; text-align: center;">
+            <p style="color: #8b4513; font-style: italic; margin: 0 0 15px 0;">No payment methods added yet</p>
+            <button type="button" class="btn" onclick="showEditForm('payment_methods')">
+                ➕ Add Your First Payment Method
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div id="payment_methods_edit" style="display: none;">
+        <form method="POST">
+            <input type="hidden" name="action" value="add_payment_method">
+            <div class="form-group">
+                <label for="payment_method_name">Payment Method Name:</label>
+                <input type="text" id="payment_method_name" name="payment_method_name" placeholder="e.g., PayPal, Venmo" required>
+            </div>
+            <button type="submit" class="btn">Add Payment Method</button>
+            <button type="button" class="btn btn-secondary" onclick="hideEditForm('payment_methods')">Cancel</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleEditMode() {
+        const sections = ['default_person', 'roommates', 'accounts', 'payment_methods'];
+        const editMode = document.getElementById('edit_mode').style.display === 'none';
+        
+        sections.forEach(section => {
+            const viewDiv = document.getElementById(section + '_view');
+            const editDiv = document.getElementById(section + '_edit');
+            
+            if (viewDiv && editDiv) {
+                viewDiv.style.display = editMode ? 'none' : 'block';
+                editDiv.style.display = editMode ? 'block' : 'none';
+            }
+        });
+        
+        document.getElementById('edit_mode').style.display = editMode ? 'block' : 'none';
+        document.getElementById('save_mode').style.display = editMode ? 'none' : 'block';
+    }
+
+    function showEditForm(section) {
+        document.getElementById(section + '_view').style.display = 'none';
+        document.getElementById(section + '_edit').style.display = 'block';
+        
+        // Focus on the first input field
+        const firstInput = document.querySelector(`#${section}_edit input[type="text"], #${section}_edit input[type="date"], #${section}_edit select`);
+        if (firstInput) {
+            firstInput.focus();
+        }
+    }
+
+    function hideEditForm(section) {
+        document.getElementById(section + '_view').style.display = 'block';
+        document.getElementById(section + '_edit').style.display = 'none';
+        
+        // Clear any input values
+        const inputs = document.querySelectorAll(`#${section}_edit input, #${section}_edit select`);
+        inputs.forEach(input => {
+            if (input.type === 'text' || input.type === 'date') {
+                input.value = '';
+            }
+        });
+    }
+
+    function cancelEdit(section) {
+        hideEditForm(section);
+    }
+
+    function removeRoommate(roommate) {
+        if (confirm(`Remove ${roommate}?`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="remove_roommate">
+                <input type="hidden" name="roommate_to_remove" value="${roommate}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function removePaymentMethod(method) {
+        if (confirm(`Remove ${method}?`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="remove_payment_method">
+                <input type="hidden" name="payment_method_to_remove" value="${method}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function addSubAccountToParent(parentName) {
+        const subAccountName = prompt(`Enter sub-account name for ${parentName}:`);
+        if (subAccountName && subAccountName.trim()) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="add_sub_account">
+                <input type="hidden" name="parent_account_for_sub" value="${parentName}">
+                <input type="hidden" name="sub_account_name" value="${subAccountName.trim()}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function removeParentAccount(parentName) {
+        if (confirm(`Remove parent account "${parentName}" and all its sub-accounts?`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="remove_parent_account">
+                <input type="hidden" name="parent_account_to_remove" value="${parentName}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function removeSubAccount(parentName, subAccountName) {
+        if (confirm(`Remove sub-account "${subAccountName}" from "${parentName}"?`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="remove_sub_account">
+                <input type="hidden" name="parent_account_for_sub_remove" value="${parentName}">
+                <input type="hidden" name="sub_account_to_remove" value="${subAccountName}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

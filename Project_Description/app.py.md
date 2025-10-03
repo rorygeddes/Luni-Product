@@ -19,6 +19,9 @@
 - **Data Persistence**: Saves and loads transaction data from JSON
 
 ## 🔄 Recent Updates
+- **2024-10-03**: Added Vercel deployment configuration and optimization
+- **2024-10-03**: Created vercel_app.py for serverless deployment
+- **2024-10-03**: Added Vercel-specific requirements and build scripts
 - **2024-10-03**: Reorganized imports to use new modular structure
 - **2024-10-03**: Updated to use centralized configuration from config/settings.py
 - **2024-10-03**: Changed default port from 3001 to 3000

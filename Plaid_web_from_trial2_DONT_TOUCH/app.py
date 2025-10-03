@@ -1,9 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash
-from src.models.transaction_model import EnhancedTransactionManager, Transaction
-from src.parsers.ai_parser import EnhancedAITransactionParser, AITransaction
-from config.settings import config
+from transaction_model import EnhancedTransactionManager, Transaction
+from ai_parser import EnhancedAITransactionParser, AITransaction
 try:
-    from src.parsers.plaid_parser import PlaidTransactionParser, PlaidTransaction
+    from plaid_parser import PlaidTransactionParser, PlaidTransaction
     PLAID_AVAILABLE = True
 except ImportError:
     PLAID_AVAILABLE = False
@@ -12,11 +11,18 @@ from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import os
 import tempfile
+from dotenv import load_dotenv
 import json
 
-# Initialize Flask app with configuration
-app = Flask(__name__, template_folder='templates')
-app.config.from_object(config['development'])
+# Load environment variables first
+load_dotenv(override=True)
+
+# Debug: Check if API key is loaded correctly
+api_key = os.getenv('OPENAI_API_KEY')
+print(f"API Key loaded in Flask app: {api_key[:20] + '...' if api_key and len(api_key) > 20 else api_key}")
+
+app = Flask(__name__)
+app.secret_key = 'luni-web-enhanced-secret-key-2024'  # For flash messages
 
 # Initialize managers
 transaction_manager = EnhancedTransactionManager()
@@ -31,9 +37,9 @@ plaid_transactions_list = []
 plaid_parser = None
 
 # Configure upload settings
-UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
-ALLOWED_EXTENSIONS = app.config['ALLOWED_EXTENSIONS']
-AI_ALLOWED_EXTENSIONS = app.config['AI_ALLOWED_EXTENSIONS']
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'csv'}
+AI_ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'heic', 'pdf'}
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)

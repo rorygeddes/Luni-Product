@@ -1,0 +1,618 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - Luni Web{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>📤 Upload Transactions</h1>
+    <p style="color: #8b4513; margin-bottom: 30px; font-size: 16px;">
+        Upload receipts, bank statements, or CSV files for automatic transaction processing
+    </p>
+    
+    <!-- Upload Section -->
+    <div class="upload-section">
+        <h3 style="color: #8b4513; margin-bottom: 20px; font-weight: 600;">📁 Choose Upload Method</h3>
+        
+        <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+            <!-- AI Upload Form -->
+            <form method="POST" enctype="multipart/form-data" style="display: inline-block;">
+                <input type="hidden" name="action" value="upload_ai_files">
+                <input type="file" name="ai_file" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.heic,.pdf" required 
+                       style="display: none;" id="aiFileInput" onchange="showLoading(); this.form.submit()">
+                <button type="button" class="upload-btn" onclick="document.getElementById('aiFileInput').click()">
+                    📸 AI Receipt Parser
+                </button>
+            </form>
+            
+            <!-- CSV Upload Form -->
+            <form method="POST" enctype="multipart/form-data" style="display: inline-block;">
+                <input type="hidden" name="action" value="upload_csv">
+                <input type="file" name="csv_file" accept=".csv" required 
+                       style="display: none;" id="csvFileInput" onchange="showLoading(); this.form.submit()">
+                <button type="button" class="upload-btn" onclick="document.getElementById('csvFileInput').click()">
+                    📊 CSV Batch Import
+                </button>
+            </form>
+        </div>
+        
+        <div style="margin-top: 20px; display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; font-size: 14px; color: #8b4513;">
+            <div style="text-align: center;">
+                <strong>📸 AI Parser:</strong><br>Receipts, bank statements<br>Automatic transaction extraction
+            </div>
+            <div style="text-align: center;">
+                <strong>📊 CSV Import:</strong><br>Batch import transactions<br>All fields must be filled
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+    </div>
+</div>
+
+<!-- AI Transactions Table -->
+{% if ai_transactions %}
+<div class="card">
+    <h2>💰 Detected Transactions</h2>
+    
+    <!-- Parsing Statistics -->
+    {% if parsing_stats %}
+    <div style="background: rgba(212, 175, 55, 0.1); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div><strong>Total Transactions:</strong> {{ parsing_stats.get('total_transactions', 0) }}</div>
+            <div><strong>Total Amount:</strong> ${{ "%.2f"|format(parsing_stats.get('total_amount', 0)) }}</div>
+            <div><strong>Avg Confidence:</strong> {{ "%.1f"|format(parsing_stats.get('average_confidence', 0) * 100) }}%</div>
+            <div><strong>High Confidence:</strong> {{ parsing_stats.get('high_confidence_transactions', 0) }}</div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Global Settings -->
+    <div style="background: rgba(255, 255, 255, 0.7); border-radius: 15px; padding: 20px; margin-bottom: 25px; border: 2px solid rgba(212, 175, 55, 0.2);">
+        <h3 style="color: #8b4513; margin-bottom: 15px; font-weight: 600;">⚙️ Global Settings</h3>
+        
+        <div style="display: flex; gap: 30px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="global_who_paid" style="font-weight: 600; color: #8b4513;">Who Paid:</label>
+                <select id="global_who_paid" name="global_who_paid" class="form-control" style="min-width: 150px;">
+                    <option value="">Select Person</option>
+                    {% for roommate in roommates %}
+                    <option value="{{ roommate }}" {% if roommate == default_person %}selected{% endif %}>{{ roommate }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="global_payment_method" style="font-weight: 600; color: #8b4513;">Payment Method:</label>
+                <select id="global_payment_method" name="global_payment_method" class="form-control" style="min-width: 150px;">
+                    <option value="">Select Method</option>
+                    {% for method in payment_methods %}
+                    <option value="{{ method }}" {% if loop.first %}selected{% endif %}>{{ method }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-success" onclick="submitTransactions()">
+                ➕ Add All Transactions
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="clearAllTransactions()">
+                🗑️ Clear All
+            </button>
+        </div>
+    </div>
+
+    <!-- Hidden form for submission -->
+    <form method="POST" id="addTransactionsForm" style="display: none;">
+        <input type="hidden" name="action" value="add_to_transactions">
+        <input type="hidden" name="global_who_paid" id="hidden_global_who_paid">
+        <input type="hidden" name="global_payment_method" id="hidden_global_payment_method">
+    </form>
+
+    <!-- Transactions Table -->
+    <div class="table-container">
+        <table class="compact-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">Remove</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th style="width: 80px;">Amount</th>
+                    <th>Type</th>
+                    <th>Parent Account</th>
+                    <th>Account</th>
+                    <th>Who Will Use</th>
+                    <th style="width: 80px;">Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in ai_transactions %}
+                <tr>
+                    <td style="text-align: center;">
+                        <button type="button" class="btn btn-danger" onclick="removeTransaction('{{ transaction.ai_id }}')" 
+                                style="padding: 4px 8px; font-size: 12px; min-width: 30px;">−</button>
+                    </td>
+                    <td>
+                        <input type="date" name="date_{{ transaction.ai_id }}" value="{{ transaction.date }}" 
+                               class="compact-select" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                    </td>
+                    <td>
+                        <input type="text" name="description_{{ transaction.ai_id }}" value="{{ transaction.description }}" 
+                               class="form-control" style="width: 200px;" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                    </td>
+                    <td>
+                        <input type="number" name="amount_{{ transaction.ai_id }}" value="{{ transaction.amount }}" 
+                               step="0.01" class="compact-select" style="width: 80px;" 
+                               onchange="updateAmountColor('{{ transaction.ai_id }}'); updateTransaction('{{ transaction.ai_id }}')">
+                    </td>
+                    <td>
+                        <select name="type_{{ transaction.ai_id }}" class="compact-select" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                            <option value="expense" {% if transaction.type == 'expense' %}selected{% endif %}>Expense</option>
+                            <option value="income" {% if transaction.type == 'income' %}selected{% endif %}>Income</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select name="parent_account_{{ transaction.ai_id }}" class="compact-select" 
+                                onchange="filterAccountDropdown('{{ transaction.ai_id }}'); updateTransaction('{{ transaction.ai_id }}')">
+                            <option value="Select">Select</option>
+                            {% for parent_name in parent_accounts.keys() %}
+                            <option value="{{ parent_name }}" {% if transaction.parent_account == parent_name %}selected{% endif %}>
+                                {{ parent_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <select name="account_{{ transaction.ai_id }}" class="compact-select" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                            <option value="">Select Account</option>
+                            {% for parent_name, sub_accounts in parent_accounts.items() %}
+                                {% for sub_account in sub_accounts %}
+                                <option value="{{ sub_account }}" data-parent="{{ parent_name }}">
+                                    {{ sub_account }}
+                                </option>
+                                {% endfor %}
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <div class="roommate-buttons" id="roommates_{{ transaction.ai_id }}">
+                            {% for roommate in roommates %}
+                            <button type="button" class="roommate-btn" 
+                                    onclick="toggleRoommate('{{ transaction.ai_id }}', '{{ roommate }}')"
+                                    data-roommate="{{ roommate }}">
+                                {{ roommate }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td>
+                        <span style="color: {{ '#27ae60' if transaction.confidence > 0.8 else '#f39c12' if transaction.confidence > 0.5 else '#e74c3c' }}; font-weight: 600;">
+                            {{ "%.0f"|format(transaction.confidence * 100) }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Available Account Categories Demo -->
+{% if not ai_transactions and not extracted_texts %}
+<div class="card">
+    <h2>📋 Available Account Categories</h2>
+    <p style="color: #8b4513; margin-bottom: 20px; font-size: 14px;">
+        Here are the account categories that will be available when you upload transactions:
+    </p>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+        {% for parent_name, sub_accounts in parent_accounts.items() %}
+        <div style="padding: 15px; background: rgba(212, 175, 55, 0.1); border-radius: 12px; border-left: 4px solid #d4af37;">
+            <h4 style="color: #8b4513; margin: 0 0 8px 0; font-weight: 600;">{{ parent_name }}</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                {% for sub_account in sub_accounts[:4] %}
+                <span style="background: rgba(255, 255, 255, 0.7); color: #8b4513; padding: 3px 8px; border-radius: 12px; font-size: 11px;">{{ sub_account }}</span>
+                {% endfor %}
+                {% if sub_accounts|length > 4 %}
+                <span style="color: #8b4513; font-size: 11px; font-style: italic;">+{{ sub_accounts|length - 4 }} more</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Extracted Text Log -->
+{% if extracted_texts %}
+<div class="card">
+    <h2>📝 Extracted Text Log</h2>
+    <p style="color: #8b4513; margin-bottom: 20px; font-size: 14px;">
+        Raw text extracted from uploaded images for reference
+    </p>
+    
+    {% for text_data in extracted_texts %}
+    <div style="background: rgba(255, 255, 255, 0.7); border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid #3498db;">
+        <h4 style="color: #8b4513; margin: 0 0 10px 0; font-weight: 600;">
+            📄 {{ text_data.filename }} - {{ text_data.timestamp[:19] }}
+        </h4>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow-y: auto;">
+            {{ text_data.text }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .roommate-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .roommate-btn {
+        background: #ecf0f1;
+        border: 1px solid #bdc3c7;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #2c3e50;
+    }
+    
+    .roommate-btn:hover {
+        background: #d5dbdb;
+    }
+    
+    .roommate-btn.selected {
+        background: #3498db;
+        color: white;
+        border-color: #2980b9;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #d4af37;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let roommateSelections = {};
+
+    // Loading functions
+    function showLoading() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    function hideLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize roommate selections for each transaction
+        {% for transaction in ai_transactions %}
+        roommateSelections['{{ transaction.ai_id }}'] = [];
+        // Add default person as initial roommate if available
+        {% if default_person %}
+        roommateSelections['{{ transaction.ai_id }}'].push('{{ default_person }}');
+        {% endif %}
+        updateRoommateButtons('{{ transaction.ai_id }}');
+        {% endfor %}
+        
+        // Initialize account dropdowns
+        {% for transaction in ai_transactions %}
+        filterAccountDropdown('{{ transaction.ai_id }}');
+        updateAmountColor('{{ transaction.ai_id }}');
+        {% endfor %}
+        
+        // Remember global dropdown values from localStorage
+        const savedWhoPaid = localStorage.getItem('upload_who_paid');
+        const savedPaymentMethod = localStorage.getItem('upload_payment_method');
+        
+        if (savedWhoPaid) {
+            document.getElementById('global_who_paid').value = savedWhoPaid;
+        }
+        if (savedPaymentMethod) {
+            document.getElementById('global_payment_method').value = savedPaymentMethod;
+        }
+        
+        // Save global dropdown values when changed
+        document.getElementById('global_who_paid').addEventListener('change', function() {
+            localStorage.setItem('upload_who_paid', this.value);
+        });
+        
+        document.getElementById('global_payment_method').addEventListener('change', function() {
+            localStorage.setItem('upload_payment_method', this.value);
+        });
+        
+        // Hide loading overlay when page loads
+        hideLoading();
+    });
+
+    // Enhanced transaction submission
+    function submitTransactions() {
+        console.log('submitTransactions called');
+        
+        const whoPaid = document.getElementById('global_who_paid').value;
+        const paymentMethod = document.getElementById('global_payment_method').value;
+        
+        // Use defaults if not selected
+        const finalWhoPaid = whoPaid || "{{ default_person }}";
+        const finalPaymentMethod = paymentMethod || "{{ payment_methods[0] if payment_methods else 'Cash' }}";
+        
+        // Show warning if using defaults but don't block
+        if (!whoPaid || !paymentMethod) {
+            showNotification(`Using defaults: Who Paid = ${finalWhoPaid}, Payment Method = ${finalPaymentMethod}`, 'warning');
+        }
+        
+        // Validate all transactions
+        let validTransactions = 0;
+        {% for transaction in ai_transactions %}
+        const date_{{ transaction.ai_id }} = document.querySelector('input[name="date_{{ transaction.ai_id }}"]').value;
+        const description_{{ transaction.ai_id }} = document.querySelector('input[name="description_{{ transaction.ai_id }}"]').value;
+        const account_{{ transaction.ai_id }} = document.querySelector('select[name="account_{{ transaction.ai_id }}"]').value;
+        
+        console.log('Transaction {{ transaction.ai_id }} validation:', {
+            date: date_{{ transaction.ai_id }},
+            description: description_{{ transaction.ai_id }},
+            account: account_{{ transaction.ai_id }},
+            roommates: roommateSelections['{{ transaction.ai_id }}'],
+            roommateCount: roommateSelections['{{ transaction.ai_id }}'].length
+        });
+        
+        // More flexible validation - account can be "Select Account" or empty, roommates can be empty (will use who_paid as fallback)
+        if (date_{{ transaction.ai_id }} && description_{{ transaction.ai_id }}) {
+            validTransactions++;
+        }
+        {% endfor %}
+        
+        if (validTransactions === 0) {
+            showNotification('Please fill in date and description for at least one transaction.', 'error');
+            return;
+        }
+        
+        // Set hidden values and submit
+        document.getElementById('hidden_global_who_paid').value = finalWhoPaid;
+        document.getElementById('hidden_global_payment_method').value = finalPaymentMethod;
+        
+        // Helper function to safely get form values
+        function getFormValue(selector, fallback = '') {
+            const element = document.querySelector(selector);
+            return element ? element.value : fallback;
+        }
+        
+        // Add all transaction form data to the hidden form
+        {% for transaction in ai_transactions %}
+        
+        // Date
+        const dateInput_{{ transaction.ai_id }} = document.createElement('input');
+        dateInput_{{ transaction.ai_id }}.type = 'hidden';
+        dateInput_{{ transaction.ai_id }}.name = 'date_{{ transaction.ai_id }}';
+        dateInput_{{ transaction.ai_id }}.value = getFormValue('input[name="date_{{ transaction.ai_id }}"]', '{{ transaction.date }}');
+        document.getElementById('addTransactionsForm').appendChild(dateInput_{{ transaction.ai_id }});
+        
+        // Description
+        const descriptionInput_{{ transaction.ai_id }} = document.createElement('input');
+        descriptionInput_{{ transaction.ai_id }}.type = 'hidden';
+        descriptionInput_{{ transaction.ai_id }}.name = 'description_{{ transaction.ai_id }}';
+        descriptionInput_{{ transaction.ai_id }}.value = getFormValue('input[name="description_{{ transaction.ai_id }}"]', '{{ transaction.description }}');
+        document.getElementById('addTransactionsForm').appendChild(descriptionInput_{{ transaction.ai_id }});
+        
+        // Amount
+        const amountInput_{{ transaction.ai_id }} = document.createElement('input');
+        amountInput_{{ transaction.ai_id }}.type = 'hidden';
+        amountInput_{{ transaction.ai_id }}.name = 'amount_{{ transaction.ai_id }}';
+        amountInput_{{ transaction.ai_id }}.value = getFormValue('input[name="amount_{{ transaction.ai_id }}"]', '{{ transaction.amount }}');
+        document.getElementById('addTransactionsForm').appendChild(amountInput_{{ transaction.ai_id }});
+        
+        // Type
+        const typeInput_{{ transaction.ai_id }} = document.createElement('input');
+        typeInput_{{ transaction.ai_id }}.type = 'hidden';
+        typeInput_{{ transaction.ai_id }}.name = 'type_{{ transaction.ai_id }}';
+        typeInput_{{ transaction.ai_id }}.value = getFormValue('select[name="type_{{ transaction.ai_id }}"]', '{{ transaction.type }}');
+        document.getElementById('addTransactionsForm').appendChild(typeInput_{{ transaction.ai_id }});
+        
+        // Parent Account
+        const parentAccountInput_{{ transaction.ai_id }} = document.createElement('input');
+        parentAccountInput_{{ transaction.ai_id }}.type = 'hidden';
+        parentAccountInput_{{ transaction.ai_id }}.name = 'parent_account_{{ transaction.ai_id }}';
+        parentAccountInput_{{ transaction.ai_id }}.value = getFormValue('select[name="parent_account_{{ transaction.ai_id }}"]', '{{ transaction.parent_account }}');
+        document.getElementById('addTransactionsForm').appendChild(parentAccountInput_{{ transaction.ai_id }});
+        
+        // Account
+        const accountInput_{{ transaction.ai_id }} = document.createElement('input');
+        accountInput_{{ transaction.ai_id }}.type = 'hidden';
+        accountInput_{{ transaction.ai_id }}.name = 'account_{{ transaction.ai_id }}';
+        accountInput_{{ transaction.ai_id }}.value = getFormValue('select[name="account_{{ transaction.ai_id }}"]', '');
+        document.getElementById('addTransactionsForm').appendChild(accountInput_{{ transaction.ai_id }});
+        
+        // Who Will Use (roommate selections)
+        const roommateInput_{{ transaction.ai_id }} = document.createElement('input');
+        roommateInput_{{ transaction.ai_id }}.type = 'hidden';
+        roommateInput_{{ transaction.ai_id }}.name = 'who_will_use_{{ transaction.ai_id }}';
+        roommateInput_{{ transaction.ai_id }}.value = roommateSelections['{{ transaction.ai_id }}'] ? roommateSelections['{{ transaction.ai_id }}'].join(', ') : '';
+        document.getElementById('addTransactionsForm').appendChild(roommateInput_{{ transaction.ai_id }});
+        {% endfor %}
+        
+        // Debug: Log all form data being submitted
+        console.log('Submitting form with data:');
+        {% for transaction in ai_transactions %}
+        console.log(`Transaction {{ transaction.ai_id }}:`, {
+            date: getFormValue('input[name="date_{{ transaction.ai_id }}"]', '{{ transaction.date }}'),
+            description: getFormValue('input[name="description_{{ transaction.ai_id }}"]', '{{ transaction.description }}'),
+            amount: getFormValue('input[name="amount_{{ transaction.ai_id }}"]', '{{ transaction.amount }}'),
+            type: getFormValue('select[name="type_{{ transaction.ai_id }}"]', '{{ transaction.type }}'),
+            parent_account: getFormValue('select[name="parent_account_{{ transaction.ai_id }}"]', '{{ transaction.parent_account }}'),
+            account: getFormValue('select[name="account_{{ transaction.ai_id }}"]', ''),
+            who_will_use: roommateSelections['{{ transaction.ai_id }}'] ? roommateSelections['{{ transaction.ai_id }}'].join(', ') : ''
+        });
+        {% endfor %}
+        console.log('Global settings:', {
+            who_paid: finalWhoPaid,
+            payment_method: finalPaymentMethod
+        });
+        
+        // Show loading state
+        showNotification('Processing transactions...', 'info');
+        
+        // Submit the form
+        try {
+            console.log('About to submit form');
+            document.getElementById('addTransactionsForm').submit();
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            showNotification('Error submitting form: ' + error.message, 'error');
+        }
+    }
+
+    // Remove transaction function
+    function removeTransaction(aiId) {
+        if (confirm('Are you sure you want to remove this transaction?')) {
+            // Find and remove the transaction row
+            const button = document.querySelector(`button[onclick="removeTransaction('${aiId}')"]`);
+            if (button) {
+                const row = button.closest('tr');
+                if (row) {
+                    row.remove();
+                }
+            }
+            
+            // Remove from roommate selections
+            delete roommateSelections[aiId];
+        }
+    }
+
+    // Enhanced roommate management
+    function toggleRoommate(aiId, roommate) {
+        if (!roommate || roommate === '') return;
+        
+        if (!roommateSelections[aiId]) {
+            roommateSelections[aiId] = [];
+        }
+        
+        if (roommateSelections[aiId].includes(roommate)) {
+            roommateSelections[aiId] = roommateSelections[aiId].filter(r => r !== roommate);
+        } else {
+            roommateSelections[aiId].push(roommate);
+        }
+        
+        updateRoommateButtons(aiId);
+    }
+
+    function updateRoommateButtons(aiId) {
+        const container = document.getElementById(`roommates_${aiId}`);
+        const buttons = container.querySelectorAll('.roommate-btn');
+        
+        buttons.forEach(button => {
+            const roommate = button.getAttribute('data-roommate');
+            if (roommateSelections[aiId] && roommateSelections[aiId].includes(roommate)) {
+                button.classList.add('selected');
+            } else {
+                button.classList.remove('selected');
+            }
+        });
+    }
+
+    // Enhanced account filtering
+    function filterAccountDropdown(aiId) {
+        const parentSelect = document.querySelector(`select[name="parent_account_${aiId}"]`);
+        const accountSelect = document.querySelector(`select[name="account_${aiId}"]`);
+        const selectedParent = parentSelect.value;
+        
+        // Store all original options for reference if not already stored
+        if (!window.allAccountOptions) {
+            window.allAccountOptions = Array.from(document.querySelectorAll('option[data-parent]'));
+        }
+        
+        // Clear existing options except the first one
+        accountSelect.innerHTML = '<option value="">Select Account</option>';
+        
+        if (selectedParent && selectedParent !== 'Select') {
+            // Add options for the selected parent (avoid duplicates)
+            const addedValues = new Set();
+            window.allAccountOptions.forEach(option => {
+                if (option.getAttribute('data-parent') === selectedParent) {
+                    const optionValue = option.value;
+                    if (!addedValues.has(optionValue)) {
+                        accountSelect.appendChild(option.cloneNode(true));
+                        addedValues.add(optionValue);
+                    }
+                }
+            });
+        } else {
+            // Show all accounts (avoid duplicates)
+            const addedValues = new Set();
+            window.allAccountOptions.forEach(option => {
+                const optionValue = option.value;
+                if (!addedValues.has(optionValue)) {
+                    accountSelect.appendChild(option.cloneNode(true));
+                    addedValues.add(optionValue);
+                }
+            });
+        }
+    }
+
+    // Enhanced amount color updating
+    function updateAmountColor(aiId) {
+        const amountInput = document.querySelector(`input[name="amount_${aiId}"]`);
+        const amount = parseFloat(amountInput.value);
+        
+        if (amount < 0) {
+            amountInput.style.color = '#e74c3c'; // Red for negative
+        } else if (amount > 0) {
+            amountInput.style.color = '#000000'; // Black for positive
+        } else {
+            amountInput.style.color = '#7f8c8d'; // Gray for zero
+        }
+    }
+
+    // Enhanced transaction updating
+    function updateTransaction(aiId) {
+        // This function can be used for real-time validation or updates
+        console.log(`Updated transaction ${aiId}`);
+    }
+
+    // Clear all transactions
+    function clearAllTransactions() {
+        if (confirm('Are you sure you want to clear all AI transactions? This cannot be undone.')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = '<input type="hidden" name="action" value="clear_ai_transactions">';
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

@@ -41,7 +41,7 @@ Formatted_Project_EDITING/
 - Python 3.8+
 - OpenAI API key
 
-### Installation
+### Local Development
 
 1. **Clone and navigate to the project:**
    ```bash
@@ -72,6 +72,21 @@ Formatted_Project_EDITING/
 
 6. **Access the application:**
    - Open http://localhost:3000 in your browser
+
+### 🚀 Vercel Deployment
+
+For production deployment to Vercel:
+
+1. **Follow the Vercel deployment guide**: See `VERCEL_DEPLOYMENT.md`
+2. **Connect your GitHub repository** to Vercel
+3. **Set environment variables** in Vercel dashboard
+4. **Deploy automatically** on every GitHub push
+
+**Quick Vercel Setup:**
+- Import repository to Vercel
+- Set root directory to `Formatted_Project_EDITING`
+- Add environment variables (OPENAI_API_KEY, etc.)
+- Deploy!
 
 ## 🔧 Core Components
 

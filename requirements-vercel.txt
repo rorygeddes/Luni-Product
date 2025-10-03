@@ -6,3 +6,4 @@ pillow-heif>=1.0.0
 pandas>=2.0.0
 werkzeug>=2.3.0
 plaid-python>=9.0.0
+gunicorn>=20.1.0
