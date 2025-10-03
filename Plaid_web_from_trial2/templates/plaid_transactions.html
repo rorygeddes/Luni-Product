@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+
+{% block title %}Plaid Transactions - Luni Web{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>🏦 Plaid Transactions</h1>
+    <p style="color: #8b4513; margin-bottom: 30px; font-size: 16px;">
+        Automatically retrieve bank transactions and review them before adding to your system
+    </p>
+    
+    <!-- Connect Bank Account Section -->
+    <div class="upload-section">
+        <h3 style="color: #8b4513; margin-bottom: 20px; font-weight: 600;">🔗 Connect Bank Account</h3>
+        
+        <div style="background: rgba(255, 255, 255, 0.7); border-radius: 15px; padding: 20px; margin-bottom: 25px; border: 2px solid rgba(212, 175, 55, 0.2);">
+            <p style="color: #8b4513; margin-bottom: 20px; font-size: 16px;">
+                Connect your bank account securely through Plaid to automatically import transactions.
+            </p>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+                <p style="color: #856404; margin: 0; font-size: 14px;">
+                    <strong>Note:</strong> With Limited Production access, you can connect to banks that don't use OAuth. 
+                    For full Canadian bank support, you may need to request full production access from Plaid.
+                </p>
+            </div>
+            
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="days_back" style="font-weight: 600; color: #8b4513;">Days Back:</label>
+                    <select id="days_back" name="days_back" class="form-control" style="min-width: 100px;">
+                        <option value="7">7 days</option>
+                        <option value="30" selected>30 days</option>
+                        <option value="90">90 days</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button id="link-button" class="btn btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; padding: 12px 24px; font-size: 16px; font-weight: 600;">
+                🏦 Connect Bank Account
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Message -->
+    {% if not plaid_transactions %}
+    <div style="background: rgba(46, 204, 113, 0.1); border: 2px solid rgba(46, 204, 113, 0.3); border-radius: 15px; padding: 20px; margin-bottom: 25px; text-align: center;">
+        <h3 style="color: #27ae60; margin: 0 0 10px 0;">✅ All Caught Up!</h3>
+        <p style="color: #27ae60; margin: 0; font-size: 16px;">
+            No pending bank transactions to review. Your account is up to date!
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Transactions Table -->
+    {% if plaid_transactions %}
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="color: #8b4513; margin: 0;">📋 Bank Transactions ({{ plaid_transactions|length }})</h2>
+            <div style="display: flex; gap: 15px;">
+                <button type="button" class="btn btn-success" onclick="submitTransactions()">
+                    ➕ Add All Transactions
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearAllTransactions()">
+                    🗑️ Clear All
+                </button>
+            </div>
+        </div>
+
+        <!-- Hidden form for submission -->
+        <form method="POST" id="addTransactionsForm" style="display: none;">
+            <input type="hidden" name="action" value="add_to_transactions">
+            <input type="hidden" name="global_who_paid" id="hidden_global_who_paid">
+            <input type="hidden" name="global_payment_method" id="hidden_global_payment_method">
+        </form>
+
+        <!-- Global Settings -->
+        <div style="background: rgba(255, 255, 255, 0.7); border-radius: 15px; padding: 20px; margin-bottom: 25px; border: 2px solid rgba(212, 175, 55, 0.2);">
+            <h3 style="color: #8b4513; margin-bottom: 15px; font-weight: 600;">⚙️ Global Settings</h3>
+            
+            <div style="display: flex; gap: 30px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="global_who_paid" style="font-weight: 600; color: #8b4513;">Who Paid:</label>
+                    <select id="global_who_paid" name="global_who_paid" class="form-control" style="min-width: 150px;">
+                        <option value="">Select Person</option>
+                        {% for roommate in roommates %}
+                        <option value="{{ roommate }}" {% if roommate == default_person %}selected{% endif %}>{{ roommate }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="global_payment_method" style="font-weight: 600; color: #8b4513;">Payment Method:</label>
+                    <select id="global_payment_method" name="global_payment_method" class="form-control" style="min-width: 150px;">
+                        <option value="">Select Method</option>
+                        {% for method in payment_methods %}
+                        <option value="{{ method }}" {% if loop.first %}selected{% endif %}>{{ method }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="table-container">
+            <table class="compact-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">Remove</th>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th style="width: 80px;">Amount</th>
+                        <th>Type</th>
+                        <th>Parent Account</th>
+                        <th>Account</th>
+                        <th>Who Will Use</th>
+                        <th style="width: 80px;">Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in plaid_transactions %}
+                    <tr>
+                        <td style="text-align: center;">
+                            <button type="button" class="btn btn-danger" onclick="removeTransaction('{{ transaction.ai_id }}')" 
+                                    style="padding: 4px 8px; font-size: 12px; min-width: 30px;">−</button>
+                        </td>
+                        <td>
+                            <input type="date" name="date_{{ transaction.ai_id }}" value="{{ transaction.date }}" 
+                                   class="compact-select" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                        </td>
+                        <td>
+                            <input type="text" name="description_{{ transaction.ai_id }}" value="{{ transaction.description }}" 
+                                   class="form-control" style="width: 200px;" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                        </td>
+                        <td>
+                            <input type="number" name="amount_{{ transaction.ai_id }}" value="{{ transaction.amount }}" 
+                                   step="0.01" class="compact-select" style="width: 80px;" 
+                                   onchange="updateAmountColor('{{ transaction.ai_id }}'); updateTransaction('{{ transaction.ai_id }}')">
+                        </td>
+                        <td>
+                            <select name="type_{{ transaction.ai_id }}" class="compact-select" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                                <option value="expense" {% if transaction.type == 'expense' %}selected{% endif %}>Expense</option>
+                                <option value="income" {% if transaction.type == 'income' %}selected{% endif %}>Income</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select name="parent_account_{{ transaction.ai_id }}" class="compact-select" 
+                                    onchange="filterAccountDropdown('{{ transaction.ai_id }}'); updateTransaction('{{ transaction.ai_id }}')">
+                                <option value="Select">Select</option>
+                                {% for parent_name in parent_accounts.keys() %}
+                                <option value="{{ parent_name }}" {% if transaction.parent_account == parent_name %}selected{% endif %}>
+                                    {{ parent_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <select name="account_{{ transaction.ai_id }}" class="compact-select" onchange="updateTransaction('{{ transaction.ai_id }}')">
+                                <option value="">Select Account</option>
+                                {% for parent_name, sub_accounts in parent_accounts.items() %}
+                                    {% for sub_account in sub_accounts %}
+                                    <option value="{{ sub_account }}" data-parent="{{ parent_name }}">
+                                        {{ sub_account }}
+                                    </option>
+                                    {% endfor %}
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <div class="roommate-buttons" id="roommates_{{ transaction.ai_id }}">
+                                {% for roommate in roommates %}
+                                <button type="button" class="roommate-btn" 
+                                        onclick="toggleRoommate('{{ transaction.ai_id }}', '{{ roommate }}')"
+                                        data-roommate="{{ roommate }}">
+                                    {{ roommate }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <span style="color: #3498db; font-weight: 600; font-size: 12px;">
+                                🏦 Bank
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Parsing Statistics -->
+    {% if parsing_stats and parsing_stats.total_transactions > 0 %}
+    <div class="card">
+        <h3 style="color: #8b4513; margin-bottom: 15px;">📊 Transaction Statistics</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="background: rgba(255, 255, 255, 0.7); border-radius: 12px; padding: 15px; text-align: center;">
+                <h4 style="color: #8b4513; margin: 0 0 5px 0;">Total Transactions</h4>
+                <p style="color: #2c3e50; margin: 0; font-size: 24px; font-weight: bold;">{{ parsing_stats.total_transactions }}</p>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.7); border-radius: 12px; padding: 15px; text-align: center;">
+                <h4 style="color: #e74c3c; margin: 0 0 5px 0;">Expenses</h4>
+                <p style="color: #e74c3c; margin: 0; font-size: 24px; font-weight: bold;">${{ "%.2f"|format(parsing_stats.total_expense) }}</p>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.7); border-radius: 12px; padding: 15px; text-align: center;">
+                <h4 style="color: #27ae60; margin: 0 0 5px 0;">Income</h4>
+                <p style="color: #27ae60; margin: 0; font-size: 24px; font-weight: bold;">${{ "%.2f"|format(parsing_stats.total_income) }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <p style="color: white; margin-top: 20px; font-size: 18px;">Processing transactions...</p>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Plaid Link SDK -->
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+
+<script>
+    // Global variables
+    let roommateSelections = {};
+    let selectedPeriod = 'month';
+    
+    // Plaid Link configuration
+    let linkHandler = null;
+    
+    // Initialize Plaid Link
+    function initializePlaidLink() {
+        console.log('initializePlaidLink called');
+        
+        // Check if Plaid is available
+        if (typeof Plaid === 'undefined') {
+            console.error('Plaid SDK not loaded!');
+            alert('Plaid SDK not loaded. Please refresh the page and try again.');
+            return;
+        }
+        
+        console.log('Plaid SDK is available, fetching link token...');
+        
+        // Get link token from backend
+        fetch('/plaid_link_token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: 'luni_user_' + Date.now() // Unique user ID
+            })
+        })
+        .then(response => {
+            console.log('Link token response:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Link token data:', data);
+            if (data.link_token) {
+                console.log('Creating Plaid Link with token:', data.link_token);
+                const config = {
+                    token: data.link_token,
+                    onSuccess: function(public_token, metadata) {
+                        console.log('Plaid Link Success:', public_token, metadata);
+                        // Exchange public token for access token and fetch transactions
+                        exchangeTokenAndFetchTransactions(public_token);
+                    },
+                    onExit: function(err, metadata) {
+                        console.log('Plaid Link Exit:', err, metadata);
+                        if (err) {
+                            console.error('Plaid Link Error:', err);
+                            let errorMessage = 'Error connecting to bank: ';
+                            if (err.error_message) {
+                                errorMessage += err.error_message;
+                            } else if (err.error_code) {
+                                errorMessage += err.error_code;
+                            } else {
+                                errorMessage += 'Unknown error occurred';
+                            }
+                            alert(errorMessage);
+                        } else {
+                            console.log('Plaid Link exited without error');
+                        }
+                    },
+                    onEvent: function(eventName, metadata) {
+                        console.log('Plaid Link Event:', eventName, metadata);
+                    }
+                };
+                
+                linkHandler = Plaid.create(config);
+                console.log('Plaid Link created, opening...');
+                linkHandler.open();
+            } else {
+                console.error('Failed to get link token:', data.error);
+                alert('Error: ' + (data.error || 'Failed to initialize bank connection'));
+            }
+        })
+        .catch(error => {
+            console.error('Error getting link token:', error);
+            alert('Error connecting to Plaid service');
+        });
+    }
+    
+    // Exchange public token for access token and fetch transactions
+    function exchangeTokenAndFetchTransactions(publicToken) {
+        const daysBack = document.getElementById('days_back').value;
+        
+        fetch('/plaid_transactions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `action=exchange_token&public_token=${publicToken}&days_back=${daysBack}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the page to show fetched transactions
+                window.location.reload();
+            } else {
+                alert('Error fetching transactions: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error exchanging token:', error);
+            alert('Error processing bank connection');
+        });
+    }
+    
+    // Add event listener for the link button
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, setting up Plaid Link button');
+        const linkButton = document.getElementById('link-button');
+        if (linkButton) {
+            console.log('Link button found, adding click listener');
+            linkButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Link button clicked, initializing Plaid Link');
+                initializePlaidLink();
+            });
+        } else {
+            console.error('Link button not found!');
+        }
+    });
+
+    // Enhanced amount color updating
+    function updateAmountColor(aiId) {
+        const amountInput = document.querySelector(`input[name="amount_${aiId}"]`);
+        const amount = parseFloat(amountInput.value);
+        
+        if (amount < 0) {
+            amountInput.style.color = '#e74c3c'; // Red for negative
+        } else if (amount > 0) {
+            amountInput.style.color = '#000000'; // Black for positive
+        } else {
+            amountInput.style.color = '#7f8c8d'; // Gray for zero
+        }
+    }
+
+    // Enhanced transaction updating
+    function updateTransaction(aiId) {
+        // This function can be used for real-time validation or updates
+        console.log(`Updated transaction ${aiId}`);
+    }
+
+    // Enhanced roommate management
+    function toggleRoommate(aiId, roommate) {
+        if (!roommate || roommate === '') return;
+        
+        if (!roommateSelections[aiId]) {
+            roommateSelections[aiId] = [];
+        }
+        
+        if (roommateSelections[aiId].includes(roommate)) {
+            roommateSelections[aiId] = roommateSelections[aiId].filter(r => r !== roommate);
+        } else {
+            roommateSelections[aiId].push(roommate);
+        }
+        
+        updateRoommateButtons(aiId);
+    }
+
+    function updateRoommateButtons(aiId) {
+        const container = document.getElementById(`roommates_${aiId}`);
+        const buttons = container.querySelectorAll('.roommate-btn');
+        
+        buttons.forEach(button => {
+            const roommate = button.getAttribute('data-roommate');
+            if (roommateSelections[aiId] && roommateSelections[aiId].includes(roommate)) {
+                button.classList.add('selected');
+            } else {
+                button.classList.remove('selected');
+            }
+        });
+    }
+
+    // Enhanced account filtering
+    function filterAccountDropdown(aiId) {
+        const parentSelect = document.querySelector(`select[name="parent_account_${aiId}"]`);
+        const accountSelect = document.querySelector(`select[name="account_${aiId}"]`);
+        const selectedParent = parentSelect.value;
+        
+        // Store all original options for reference if not already stored
+        if (!window.allAccountOptions) {
+            window.allAccountOptions = Array.from(document.querySelectorAll('option[data-parent]'));
+        }
+        
+        // Clear existing options except the first one
+        accountSelect.innerHTML = '<option value="">Select Account</option>';
+        
+        if (selectedParent && selectedParent !== 'Select') {
+            // Add options for the selected parent (avoid duplicates)
+            const addedValues = new Set();
+            window.allAccountOptions.forEach(option => {
+                if (option.getAttribute('data-parent') === selectedParent) {
+                    const optionValue = option.value;
+                    if (!addedValues.has(optionValue)) {
+                        accountSelect.appendChild(option.cloneNode(true));
+                        addedValues.add(optionValue);
+                    }
+                }
+            });
+        }
+    }
+
+    // Remove transaction function
+    function removeTransaction(aiId) {
+        if (confirm('Are you sure you want to remove this transaction?')) {
+            // Find and remove the transaction row
+            const button = document.querySelector(`button[onclick="removeTransaction('${aiId}')"]`);
+            if (button) {
+                const row = button.closest('tr');
+                if (row) {
+                    row.remove();
+                }
+            }
+            
+            // Remove from roommate selections
+            delete roommateSelections[aiId];
+        }
+    }
+
+    // Enhanced transaction submission
+    function submitTransactions() {
+        console.log('submitTransactions called');
+        
+        const whoPaid = document.getElementById('global_who_paid').value;
+        const paymentMethod = document.getElementById('global_payment_method').value;
+        
+        // Use defaults if not selected
+        const finalWhoPaid = whoPaid || "{{ default_person }}";
+        const finalPaymentMethod = paymentMethod || "{{ payment_methods[0] if payment_methods else 'Cash' }}";
+        
+        // Show warning if using defaults but don't block
+        if (!whoPaid || !paymentMethod) {
+            showNotification(`Using defaults: Who Paid = ${finalWhoPaid}, Payment Method = ${finalPaymentMethod}`, 'warning');
+        }
+        
+        // Validate all transactions
+        let validTransactions = 0;
+        {% for transaction in plaid_transactions %}
+        const date_{{ transaction.ai_id }} = document.querySelector('input[name="date_{{ transaction.ai_id }}"]').value;
+        const description_{{ transaction.ai_id }} = document.querySelector('input[name="description_{{ transaction.ai_id }}"]').value;
+        
+        // More flexible validation - account can be "Select Account" or empty, roommates can be empty (will use who_paid as fallback)
+        if (date_{{ transaction.ai_id }} && description_{{ transaction.ai_id }}) {
+            validTransactions++;
+        }
+        {% endfor %}
+        
+        if (validTransactions === 0) {
+            showNotification('Please fill in date and description for at least one transaction.', 'error');
+            return;
+        }
+        
+        // Set hidden values and submit
+        document.getElementById('hidden_global_who_paid').value = finalWhoPaid;
+        document.getElementById('hidden_global_payment_method').value = finalPaymentMethod;
+        
+        // Helper function to safely get form values
+        function getFormValue(selector, fallback = '') {
+            const element = document.querySelector(selector);
+            return element ? element.value : fallback;
+        }
+        
+        // Add all transaction form data to the hidden form
+        {% for transaction in plaid_transactions %}
+        
+        // Date
+        const dateInput_{{ transaction.ai_id }} = document.createElement('input');
+        dateInput_{{ transaction.ai_id }}.type = 'hidden';
+        dateInput_{{ transaction.ai_id }}.name = 'date_{{ transaction.ai_id }}';
+        dateInput_{{ transaction.ai_id }}.value = getFormValue('input[name="date_{{ transaction.ai_id }}"]', '{{ transaction.date }}');
+        document.getElementById('addTransactionsForm').appendChild(dateInput_{{ transaction.ai_id }});
+        
+        // Description
+        const descriptionInput_{{ transaction.ai_id }} = document.createElement('input');
+        descriptionInput_{{ transaction.ai_id }}.type = 'hidden';
+        descriptionInput_{{ transaction.ai_id }}.name = 'description_{{ transaction.ai_id }}';
+        descriptionInput_{{ transaction.ai_id }}.value = getFormValue('input[name="description_{{ transaction.ai_id }}"]', '{{ transaction.description }}');
+        document.getElementById('addTransactionsForm').appendChild(descriptionInput_{{ transaction.ai_id }});
+        
+        // Amount
+        const amountInput_{{ transaction.ai_id }} = document.createElement('input');
+        amountInput_{{ transaction.ai_id }}.type = 'hidden';
+        amountInput_{{ transaction.ai_id }}.name = 'amount_{{ transaction.ai_id }}';
+        amountInput_{{ transaction.ai_id }}.value = getFormValue('input[name="amount_{{ transaction.ai_id }}"]', '{{ transaction.amount }}');
+        document.getElementById('addTransactionsForm').appendChild(amountInput_{{ transaction.ai_id }});
+        
+        // Type
+        const typeInput_{{ transaction.ai_id }} = document.createElement('input');
+        typeInput_{{ transaction.ai_id }}.type = 'hidden';
+        typeInput_{{ transaction.ai_id }}.name = 'type_{{ transaction.ai_id }}';
+        typeInput_{{ transaction.ai_id }}.value = getFormValue('select[name="type_{{ transaction.ai_id }}"]', '{{ transaction.type }}');
+        document.getElementById('addTransactionsForm').appendChild(typeInput_{{ transaction.ai_id }});
+        
+        // Parent Account
+        const parentAccountInput_{{ transaction.ai_id }} = document.createElement('input');
+        parentAccountInput_{{ transaction.ai_id }}.type = 'hidden';
+        parentAccountInput_{{ transaction.ai_id }}.name = 'parent_account_{{ transaction.ai_id }}';
+        parentAccountInput_{{ transaction.ai_id }}.value = getFormValue('select[name="parent_account_{{ transaction.ai_id }}"]', '{{ transaction.parent_account }}');
+        document.getElementById('addTransactionsForm').appendChild(parentAccountInput_{{ transaction.ai_id }});
+        
+        // Account
+        const accountInput_{{ transaction.ai_id }} = document.createElement('input');
+        accountInput_{{ transaction.ai_id }}.type = 'hidden';
+        accountInput_{{ transaction.ai_id }}.name = 'account_{{ transaction.ai_id }}';
+        accountInput_{{ transaction.ai_id }}.value = getFormValue('select[name="account_{{ transaction.ai_id }}"]', '');
+        document.getElementById('addTransactionsForm').appendChild(accountInput_{{ transaction.ai_id }});
+        
+        // Who Will Use (roommate selections)
+        const roommateInput_{{ transaction.ai_id }} = document.createElement('input');
+        roommateInput_{{ transaction.ai_id }}.type = 'hidden';
+        roommateInput_{{ transaction.ai_id }}.name = 'who_will_use_{{ transaction.ai_id }}';
+        roommateInput_{{ transaction.ai_id }}.value = roommateSelections['{{ transaction.ai_id }}'] ? roommateSelections['{{ transaction.ai_id }}'].join(', ') : '';
+        document.getElementById('addTransactionsForm').appendChild(roommateInput_{{ transaction.ai_id }});
+        {% endfor %}
+        
+        // Debug: Log all form data being submitted
+        console.log('Submitting form with data:');
+        {% for transaction in plaid_transactions %}
+        console.log(`Transaction {{ transaction.ai_id }}:`, {
+            date: getFormValue('input[name="date_{{ transaction.ai_id }}"]', '{{ transaction.date }}'),
+            description: getFormValue('input[name="description_{{ transaction.ai_id }}"]', '{{ transaction.description }}'),
+            amount: getFormValue('input[name="amount_{{ transaction.ai_id }}"]', '{{ transaction.amount }}'),
+            type: getFormValue('select[name="type_{{ transaction.ai_id }}"]', '{{ transaction.type }}'),
+            parent_account: getFormValue('select[name="parent_account_{{ transaction.ai_id }}"]', '{{ transaction.parent_account }}'),
+            account: getFormValue('select[name="account_{{ transaction.ai_id }}"]', ''),
+            who_will_use: roommateSelections['{{ transaction.ai_id }}'] ? roommateSelections['{{ transaction.ai_id }}'].join(', ') : ''
+        });
+        {% endfor %}
+        console.log('Global settings:', {
+            who_paid: finalWhoPaid,
+            payment_method: finalPaymentMethod
+        });
+        
+        // Show loading state
+        showNotification('Processing transactions...', 'info');
+        
+        // Submit the form
+        try {
+            console.log('About to submit form');
+            document.getElementById('addTransactionsForm').submit();
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            showNotification('Error submitting form: ' + error.message, 'error');
+        }
+    }
+
+    // Clear all transactions
+    function clearAllTransactions() {
+        if (confirm('Are you sure you want to clear all Plaid transactions?')) {
+            // Create a form to submit the clear action
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = '<input type="hidden" name="action" value="clear_plaid_transactions">';
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize roommate selections for each transaction
+        {% for transaction in plaid_transactions %}
+        roommateSelections['{{ transaction.ai_id }}'] = [];
+        // Add default person as initial roommate if available
+        {% if default_person %}
+        roommateSelections['{{ transaction.ai_id }}'].push('{{ default_person }}');
+        {% endif %}
+        updateRoommateButtons('{{ transaction.ai_id }}');
+        {% endfor %}
+        
+        // Initialize account dropdowns
+        {% for transaction in plaid_transactions %}
+        filterAccountDropdown('{{ transaction.ai_id }}');
+        updateAmountColor('{{ transaction.ai_id }}');
+        {% endfor %}
+        
+        // Remember global dropdown values from localStorage
+        const savedWhoPaid = localStorage.getItem('plaid_who_paid');
+        const savedPaymentMethod = localStorage.getItem('plaid_payment_method');
+        
+        if (savedWhoPaid) {
+            document.getElementById('global_who_paid').value = savedWhoPaid;
+        }
+        if (savedPaymentMethod) {
+            document.getElementById('global_payment_method').value = savedPaymentMethod;
+        }
+        
+        // Save global dropdown values when changed
+        document.getElementById('global_who_paid').addEventListener('change', function() {
+            localStorage.setItem('plaid_who_paid', this.value);
+        });
+        
+        document.getElementById('global_payment_method').addEventListener('change', function() {
+            localStorage.setItem('plaid_payment_method', this.value);
+        });
+        
+        // Hide loading overlay when page loads
+        hideLoading();
+    });
+
+    // Loading overlay functions
+    function showLoading() {
+        document.getElementById('loading-overlay').style.display = 'flex';
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+</script>
+
+<style>
+    /* Roommate button styles */
+    .roommate-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .roommate-btn {
+        background: #ecf0f1;
+        border: 1px solid #bdc3c7;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #2c3e50;
+    }
+    
+    .roommate-btn:hover {
+        background: #d5dbdb;
+    }
+    
+    .roommate-btn.selected {
+        background: #3498db;
+        color: white;
+        border-color: #2980b9;
+    }
+    
+    /* Loading overlay styles */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
