@@ -64,3 +64,6 @@ uploads/
 # Flask
 instance/
 .webassets-cache
+
+# Backup folders
+Plaid_web_from_trial2_DONT_TOUCH/
